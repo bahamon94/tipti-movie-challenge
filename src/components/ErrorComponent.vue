@@ -8,10 +8,12 @@ export default {
   },
   computed: {
     getAlertColor(): string {
-      if (this.type === 'Danger') return '#f44336'
-      if (this.type === 'Success') return '#04AA6D'
-      if (this.type === 'Alert') return '#ff9800'
-      return 'red'
+      const alertColors: Record<string, string> = {
+        Danger: '#f44336',
+        Success: '#04AA6D',
+        Alert: '#ff9800'
+      }
+      return alertColors[`${this.type}`] || 'red'
     }
   }
 }

@@ -1,10 +1,11 @@
 <script lang="ts">
 import type { PropType } from 'vue'
+import type { TabData } from '@/types/TabData.types'
 
 export default {
   emits: ['changeTab'],
   props: {
-    dataToTabs: Array as PropType<any[]>
+    dataToTabs: Array as PropType<TabData[]>
   },
   mounted() {
     if (this.dataToTabs?.length) {

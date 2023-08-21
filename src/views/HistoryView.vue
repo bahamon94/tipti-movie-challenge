@@ -1,14 +1,17 @@
 <script lang="ts">
+import { type Ref, ref } from 'vue'
 import { mapActions, mapState } from 'pinia'
+
 import { useGlobalStore } from '../stores/store'
 import TabComponent from '../components/TabComponent.vue'
 import ToggleComponent from '../components/ToggleComponent.vue'
-import { type Ref, ref } from 'vue'
+
+import type { TabData } from '@/types/TabData.types'
 
 export default {
   setup() {
     const activeResource: Ref<string> = ref('')
-    const tabs: Ref<any[]> = ref([
+    const tabs: Ref<TabData[]> = ref([
       { id: 1, name: 'Viewed' },
       { id: 2, name: 'Saved' }
     ])
@@ -52,7 +55,7 @@ export default {
           setTimeout(() => {
             serie.isSaved = false
           }, 0)
-          alert('Ya tiene 10 guardados')
+          alert('Already has 10 saved')
         }
         this.getResourcesSeriesToShow(this.activeResource)
       }

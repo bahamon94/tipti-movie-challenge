@@ -7,21 +7,15 @@ export default {
     type: String,
     resourcesRelatedNumber: String
   },
-  computed:{
-    getTypeStyle(){
-      if(this.type === 'limited'){
-        return 'blue'
+  computed: {
+    getTypeStyle() {
+      const typeStyles: Record<string, string> = {
+        limited: 'blue',
+        collection: 'orange',
+        'one shot': 'red',
+        ongoing: 'green'
       }
-      if(this.type === 'collection'){
-        return 'orange'
-      }
-      if(this.type === 'one shot'){
-        return 'red'
-      }
-      if(this.type === 'ongoing'){
-        return 'green'
-      }
-      return 'gray'
+      return typeStyles[`${this.type}`] || 'gray'
     }
   }
 }
@@ -30,9 +24,12 @@ export default {
   <div class="card">
     <img :src="img" alt="Avatar" style="width: 100%; height: 320px" />
     <div class="container-card">
-      <h4><b>Title: {{ title }}</b></h4>
-      <p>Type: 
-      <span :style="{backgroundColor:getTypeStyle }" class="badge">{{ type || 'n/a' }}</span>
+      <h4>
+        <b>Title: {{ title }}</b>
+      </h4>
+      <p>
+        Type:
+        <span :style="{ backgroundColor: getTypeStyle }" class="badge">{{ type || 'n/a' }}</span>
       </p>
       <p>Ages: {{ ages }}</p>
       <p>Related resources: {{ resourcesRelatedNumber }}</p>

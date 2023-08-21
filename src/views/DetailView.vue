@@ -1,11 +1,15 @@
 <script lang="ts">
 import { type Ref, ref } from 'vue'
+import { mapActions, mapState } from 'pinia'
+
+import { fetchSerieDataById, fetchResourceData } from '@/services/movies'
+import type { TabData } from '@/types/TabData.types'
+import { capitalizeFirstLetter } from '@/utils/capitalizeFirstLetter'
+
 import TabComponent from '../components/TabComponent.vue'
 import ToggleComponent from '../components/ToggleComponent.vue'
-import { mapActions, mapState } from 'pinia'
 import { useGlobalStore } from '../stores/store'
-const baseUrlApi = import.meta.env.VITE_API_BASE_URL
-const apiKey = import.meta.env.VITE_MARVEL_API_KEY
+
 export default {
   components: {
     TabComponent,
@@ -13,7 +17,7 @@ export default {
   },
 
   computed: {
-    ...mapState(useGlobalStore, ['getSavedSeries'])
+    ...mapState(useGlobalStore, [ 'getSavedSeries' ])
   },
   setup() {
     const serie: Ref<any> = ref(null)
@@ -29,25 +33,27 @@ export default {
     }
   },
   mounted() {
-    this.getSerieByid(this.$route.params.id)
+    this.getSerieByid(Number(this.$route.params.id))
   },
 
   methods: {
-    ...mapActions(useGlobalStore, ['addSavedSerie', 'removeSavedSerie']),
-    getSerieByid(idSerie: any): void {
+    ...mapActions(useGlobalStore, [ 'addSavedSerie', 'removeSavedSerie' ]),
+    async getSerieByid(idSerie: number) {
       this.isLoading = true
-      fetch(`${baseUrlApi}/series/${idSerie}?apikey=${apiKey}`)
-        .then((response) => response.json())
-        .then((data) => {
-          const result = data.data.results[0]
-          this.serie = {
-            ...result,
-            ages: result.endYear - result.startYear,
-            img: `${result.thumbnail.path}.${result.thumbnail.extension}`,
-            isSaved: this.getIsSaveSerie(result.id)
-          }
-          this.isLoading = false
-        })
+
+      try {
+        const serieData = await fetchSerieDataById(idSerie)
+        this.serie = {
+          ...serieData,
+          ages: serieData.endYear - serieData.startYear,
+          img: `${serieData.thumbnail.path}.${serieData.thumbnail.extension}`,
+          isSaved: this.getIsSaveSerie(serieData.id.toString())
+        }
+      } catch (error) {
+        console.error('Error al obtener datos de la serie:', error)
+      } finally {
+        this.isLoading = false
+      }
     },
     getIsSaveSerie(serieId: string) {
       if (this.getSavedSeries.length) {
@@ -55,34 +61,25 @@ export default {
       }
       return false
     },
-    buildDataToTabs(serie: any): any[] {
-      let arrayToReturn = []
-      if (serie.characters?.available) {
-        arrayToReturn.push({ ...serie.characters, name: 'Characters' })
-      }
-      if (serie.comics?.available) {
-        arrayToReturn.push({ ...serie.comics, name: 'Comics' })
-      }
-      if (serie.creators?.available) {
-        arrayToReturn.push({ ...serie.creators, name: 'Creators' })
-      }
-      if (serie.events?.available) {
-        arrayToReturn.push({ ...serie.events, name: 'Events' })
-      }
-      if (serie.stories?.available) {
-        arrayToReturn.push({ ...serie.stories, name: 'Stories' })
-      }
-      return arrayToReturn
+    buildDataToTabs(serie: any): TabData[] {
+      const tabFields = [ 'characters', 'comics', 'creators', 'events', 'stories' ]
+
+      return tabFields.reduce((tabs: TabData[], field: string) => {
+        if (serie[ field ]?.available) {
+          tabs.push({ name: capitalizeFirstLetter(field), available: serie[ field ].available })
+        }
+        return tabs
+      }, [])
     },
-    getResourcesBySerieIdAndResourceName(serieId: string, resourceName: string) {
+
+  async getResourcesBySerieIdAndResourceName(serieId: string, resourceName: string) {
       this.activeResource = resourceName
-      fetch(
-        `${baseUrlApi}/series/${serieId}/${resourceName.toLowerCase()}?apikey=${apiKey}`
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          this.detailResourcesList = data.data.results
-        })
+      try {
+        const serieIdParse = Number(serieId);
+        this.detailResourcesList = await fetchResourceData(serieIdParse, resourceName)
+      } catch (error) {
+        console.error('Error al obtener datos del recurso:', error)
+      }
     },
     saveSerie(event: boolean) {
       if (event) {
@@ -115,33 +112,17 @@ export default {
       </div>
       <div style="margin-top: 1rem; margin-right: 1rem">
         <h3>Saved</h3>
-        <ToggleComponent
-          v-if="serie.isSaved !== null"
-          @changeValue="saveSerie"
-          :active-value="serie.isSaved"
-        ></ToggleComponent>
+        <ToggleComponent v-if="serie.isSaved !== null" @changeValue="saveSerie" :active-value="serie.isSaved">
+        </ToggleComponent>
       </div>
     </div>
     <div class="tabs">
-      <TabComponent
-        v-if="buildDataToTabs(serie).length"
-        @changeTab="getResourcesBySerieIdAndResourceName(serie.id, $event)"
-        :data-to-tabs="buildDataToTabs(serie)"
-      >
+      <TabComponent v-if="buildDataToTabs(serie).length"
+        @changeTab="getResourcesBySerieIdAndResourceName(serie.id, $event)" :data-to-tabs="buildDataToTabs(serie)">
         <div>
-          <div
-            style="display: flex; margin-top: 1rem"
-            v-for="resource of detailResourcesList"
-            :key="resource.id"
-          >
-            <img
-              v-if="resource.thumbnail"
-              width="200"
-              height="200"
-              style="min-width: 200px"
-              :src="resource.thumbnail?.path + '.' + resource.thumbnail?.extension"
-              alt=""
-            />
+          <div style="display: flex; margin-top: 1rem" v-for="resource of detailResourcesList" :key="resource.id">
+            <img v-if="resource.thumbnail" width="200" height="200" style="min-width: 200px"
+              :src="resource.thumbnail?.path + '.' + resource.thumbnail?.extension" alt="" />
             <div style="margin-left: 4rem">
               <h4 v-if="resource.fullName || resource.name">
                 Name: {{ resource.fullName || resource.name }}
@@ -149,13 +130,13 @@ export default {
               <h4 v-if="resource.title">Title: {{ resource.title }}</h4>
               <p>Modified: {{ resource.modified }}</p>
               <p v-if="resource.textObjects?.length">
-                Description: {{ resource.textObjects[0].text }}
+                Description: {{ resource.textObjects[ 0 ].text }}
               </p>
               <p v-if="activeResource === 'Stories'">Type: {{ resource.type }}</p>
             </div>
           </div>
-        </div></TabComponent
-      >
+        </div>
+      </TabComponent>
       <div v-else>Not found resources</div>
     </div>
   </div>

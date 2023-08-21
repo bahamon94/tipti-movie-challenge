@@ -1,12 +1,18 @@
 <script lang="ts">
 import { ref, type Ref } from 'vue'
-import CardSeries from '../components/CardSeries.vue'
 import { mapActions, mapState } from 'pinia'
-import { useGlobalStore } from '../stores/store'
+
+import type { MarvelSeries } from '@/types/MarvelSeries.types'
+import { fetchMarvelSeries } from '@/services/movies'
+import { capitalizeFirstLetter } from '@/utils/capitalizeFirstLetter'
+
 import LoaderComponent from '@/components/LoaderComponent.vue'
 import ErrorComponent from '@/components/ErrorComponent.vue'
-const baseUrlApi = import.meta.env.VITE_API_BASE_URL
-const apiKey = import.meta.env.VITE_MARVEL_API_KEY
+
+import CardSeries from '../components/CardSeries.vue'
+import { useGlobalStore } from '../stores/store'
+
+
 export default {
   components: {
     CardSeries,
@@ -20,7 +26,7 @@ export default {
     ...mapState(useGlobalStore, ['getViewSeries'])
   },
   setup() {
-    const series: Ref<any[]> = ref([])
+    const series: Ref<MarvelSeries[]> = ref([])
     const seriesLimit: Ref<number> = ref(0)
     const seriesSize: Ref<number> = ref(20)
     const currentPage: Ref<number> = ref(0)
@@ -47,43 +53,29 @@ export default {
 
   methods: {
     ...mapActions(useGlobalStore, ['addViewSerie']),
-    getSeriesWithPagination(currentPage: number, size: number): void {
-      this.isLoading = true
-      fetch(`${baseUrlApi}/series?limit=${size}&offset=${currentPage}&apikey=${apiKey}`)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.code === 200 && data.data.results?.length) {
-            this.series = this.series.concat(data.data.results)
-          } else {
-            this.series = []
-            this.isNoData = true
-          }
-          this.isLoading = false
-        })
-        .catch((error) => {
-          this.isLoading = false
-          this.isError = true
-        })
+    async getSeriesWithPagination(currentPage: number, size: number) {
+      this.isLoading = true;
+      try {
+        const seriesData = await fetchMarvelSeries(size, currentPage);
+        this.series = this.series.concat(seriesData);
+      } catch (error) {
+        this.isLoading = false;
+        this.isError = true;
+        console.error('Error al obtener datos de series:', error);
+      } finally {
+        this.isLoading = false;
+      }
     },
-    getResourcesRelatedNumber(data: any): string {
-      let stringToReturn = ''
-      if (data.characters?.available) {
-        stringToReturn = stringToReturn + `${data.characters?.available} Characters, `
-      }
-      if (data.creators?.available) {
-        stringToReturn = stringToReturn + `${data.creators?.available} Creators, `
-      }
-      if (data.events?.available) {
-        stringToReturn = stringToReturn + `${data.events?.available} Events, `
-      }
-      if (data.stories?.available) {
-        stringToReturn = stringToReturn + `${data.stories?.available} Stories, `
-      }
-      if (data.comics?.available) {
-        stringToReturn = stringToReturn + `${data.comics?.available} Comics`
-      }
-      return stringToReturn
+
+    getResourcesRelatedNumber(data: MarvelSeries): string {
+      const resourceTypes = ['characters', 'creators', 'events', 'stories', 'comics'];
+      const resourceStringArray = resourceTypes
+        .filter((type) => data[type]?.available)
+        .map((type) => `${data[type]?.available} ${capitalizeFirstLetter(type)},`)
+
+      return resourceStringArray.join(' ').slice(0, -1);
     },
+
     handleScroll(): void {
       const endOfPage = window.innerHeight + window.scrollY >= document.body.offsetHeight
       if (endOfPage && !this.isLoading) {
@@ -160,3 +152,4 @@ export default {
   }
 }
 </style>
+@/types/MarvelSeries.types
